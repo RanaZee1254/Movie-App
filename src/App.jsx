@@ -1,21 +1,88 @@
 import React from 'react'
+import Search from './Components/Search.jsx'
+import { useState, useEffect } from 'react'
 import Cards from './Cards.jsx'
+import {useDebounce} from 'react-use';
+import Navbar from './Components/Navbar.jsx'
+
+
+const API_BASE_URL='https://api.themoviedb.org/3';
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+const API_OPTIONS={
+  method: 'GET',
+  headers: {
+    accept: 'application/json',
+    Authorization: `Bearer ${API_KEY}`,
+  },
+};
 const App = () => {
-  return (<div>
+  const [searchTerm, setSearchTerm] = useState('')
+  const[errorMessage, setErrorMessage] = useState('')
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(false); 
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  useDebounce(() => setDebouncedSearchTerm(searchTerm), 500, [searchTerm]);
 
-    <div >
-      <div className="body">
-        <p><b>Hi ,</b> We welcome you on our page where you can find the latesdt and best movies of all the time.</p>
-      </div>
-      <div className = "card-container">
-        <Cards props={{ img:"https://cdn.britannica.com/24/259724-050-5F1007C0/Star-Wars-movie-poster-Episode-IV-A-New-Hope-1977.jpg" ,title: "Star Wars" }} />
-        <Cards props={{ img:"https://variety.com/wp-content/uploads/2014/04/01-avengers-2012.jpg?w=1000&h=667&crop=1" ,title: "Avengers" }} />       
-        <Cards props={{ img:"https://static0.cbrimages.com/wordpress/wp-content/uploads/2026/01/iron-man-1-header.jpg?w=1600&h=1200&fit=crop" ,title: "Iron Man" }} />
-        
-    </div>
-  </div>
-  </div>
-  )
+  const fetchMovies = async (query='') => {
+    setLoading(true);
+    setErrorMessage('');
+    try{
+      const endPoint = query 
+        ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&api_key=${API_KEY}`
+        : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc&api_key=${API_KEY}`;
+      const response = await fetch(endPoint);
+      if(!response.ok){
+        throw new Error('Failed to fetch movies');
+      }
+      const data = await response.json();
+      if (!data.results || data.results.length === 0) {
+  setErrorMessage('No movies found');
+  setMovies([]);
+} else {
+  setMovies(data.results);
 }
+    }
+    catch(error){
+      console.error(error);
+      setErrorMessage('Failed to fetch movies. Please try again later.');
+    } finally{
+      setLoading(false);
+    }
+  };
+useEffect(() => {
+  fetchMovies(debouncedSearchTerm);
+}, [debouncedSearchTerm]);
+  
+  return (
+  <main>
+    <Navbar title="Movie Finder" />
 
+    <div className="pattern">
+      <div className="wrapper">
+        <header>
+          <img src="./hero.png" alt="hero" className="hero" />
+
+          <h1>
+            Find <span className="text-gradient">Movies</span>
+            {" "}You'll enjoy without the hassle
+          </h1>
+
+          <Search
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </header>
+
+        <Cards
+          movies={movies}
+          loading={loading}
+          errorMessage={errorMessage}
+        />
+      </div>
+   
+    </div>
+
+  </main>
+);
+}
 export default App
